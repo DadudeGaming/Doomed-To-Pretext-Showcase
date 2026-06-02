@@ -11,23 +11,40 @@ const {
 const app = document.getElementById("app");
 
 let raf = null;
+let current = null;
 
-// ---------------------
-// GLOBAL STOP
-// ---------------------
+// -------------------------
+// HARD STOP (important)
+// -------------------------
 function stopAll() {
     if (raf) cancelAnimationFrame(raf);
     raf = null;
 
+    current = null;
+
     app.innerHTML = "";
 }
 
-// ---------------------
-// FLOW DEMO
-// ---------------------
-function flow() {
+// -------------------------
+// SAFE RAF WRAPPER
+// -------------------------
+function run(loopFn) {
     stopAll();
 
+    const tick = () => {
+        if (!current) return;
+        loopFn();
+        raf = requestAnimationFrame(tick);
+    };
+
+    current = true;
+    tick();
+}
+
+// -------------------------
+// FLOW (FIXED SAFETY)
+// -------------------------
+function flow() {
     const text = `
 Pretext Flow Demo
 Move mouse to change width
@@ -38,28 +55,27 @@ Move mouse to change width
     let mouseX = 400;
     window.onmousemove = e => mouseX = e.clientX;
 
-    function loop() {
-        const width = Math.max(200, mouseX);
+    run(() => {
+        try {
+            const width = Math.max(200, mouseX || 400);
+            const { lines } = layoutWithLines(prepared, width, 24);
 
-        const { lines } = layoutWithLines(prepared, width, 24);
+            if (!lines) return;
 
-        app.innerHTML = lines.map(l => l.text).join("<br>");
-
-        raf = requestAnimationFrame(loop);
-    }
-
-    loop();
+            app.innerHTML = lines.map(l => l?.text ?? "").join("<br>");
+        } catch (e) {
+            console.log("flow crash avoided:", e);
+        }
+    });
 }
 
-// ---------------------
-// GRAVITY DEMO
-// ---------------------
+// -------------------------
+// GRAVITY (SAFE)
+// -------------------------
 function gravity() {
-    stopAll();
-
     const text = `
-Gravity text demo.
-Layout reacts to cursor.
+Gravity demo text.
+Stable Pretext layout.
 `;
 
     const prepared = prepareWithSegments(text, "18px monospace");
@@ -67,31 +83,33 @@ Layout reacts to cursor.
     let mouse = 400;
     window.onmousemove = e => mouse = e.clientX;
 
-    function loop() {
-        let cursor = { segmentIndex: 0, graphemeIndex: 0 };
-        let out = "";
+    run(() => {
+        try {
+            let cursor = { segmentIndex: 0, graphemeIndex: 0 };
+            let out = "";
 
-        while (true) {
-            const width = Math.max(200, 600 - Math.abs(mouse - 400));
+            while (true) {
+                const width = Math.max(200, 600 - Math.abs(mouse - 400));
 
-            const range = layoutNextLineRange(prepared, cursor, width);
-            if (!range) break;
+                const range = layoutNextLineRange(prepared, cursor, width);
+                if (!range) break;
 
-            out += materializeLineRange(prepared, range).text + "\n";
-            cursor = range.end;
+                const line = materializeLineRange(prepared, range);
+                out += (line?.text ?? "") + "\n";
+
+                cursor = range.end;
+            }
+
+            app.textContent = out;
+        } catch (e) {
+            console.log("gravity crash avoided:", e);
         }
-
-        app.textContent = out;
-
-        raf = requestAnimationFrame(loop);
-    }
-
-    loop();
+    });
 }
 
-// ---------------------
-// EDITOR DEMO
-// ---------------------
+// -------------------------
+// EDITOR (SAFE)
+// -------------------------
 function editor() {
     stopAll();
 
@@ -106,11 +124,14 @@ function editor() {
     const out = document.getElementById("out");
 
     function update() {
-        const prepared = prepareWithSegments(t.value, "16px monospace");
+        try {
+            const prepared = prepare(t.value || "", "16px monospace");
+            const { lines } = layoutWithLines(prepared, Number(w.value), 20);
 
-        const { lines } = layoutWithLines(prepared, Number(w.value), 20);
-
-        out.textContent = lines.map(l => l.text).join("\n");
+            out.textContent = (lines || []).map(l => l.text).join("\n");
+        } catch (e) {
+            out.textContent = "layout error";
+        }
     }
 
     t.oninput = update;
@@ -119,39 +140,29 @@ function editor() {
     update();
 }
 
-// ---------------------
-// WALL DEMO
-// ---------------------
+// -------------------------
+// WALL (SAFE)
+// -------------------------
 function wall() {
-    stopAll();
-
-    function loop() {
+    run(() => {
         let out = "";
 
         for (let y = 0; y < 30; y++) {
             let line = "";
-
             for (let x = 0; x < 80; x++) {
                 line += Math.sin((x + Date.now() * 0.003)) > 0 ? "█" : "░";
             }
-
             out += line + "\n";
         }
 
         app.textContent = out;
-
-        raf = requestAnimationFrame(loop);
-    }
-
-    loop();
+    });
 }
 
-// ---------------------
-// MINI DOOM (SAFE)
-// ---------------------
+// -------------------------
+// MINI DOOM (FIXED PROPERLY)
+// -------------------------
 function doom() {
-    stopAll();
-
     const map = [
         "1111111111",
         "1000000001",
@@ -167,20 +178,19 @@ function doom() {
     window.onkeydown = e => keys[e.key.toLowerCase()] = true;
     window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
-    function wall(x, y) {
-        return map[Math.floor(y)][Math.floor(x)] === "1";
-    }
+    const wall = (x, y) =>
+        map[Math.floor(y)]?.[Math.floor(x)] === "1";
 
-    function cast(angle) {
+    const cast = (angle) => {
         for (let d = 0; d < 20; d += 0.05) {
             const x = player.x + Math.cos(angle) * d;
             const y = player.y + Math.sin(angle) * d;
             if (wall(x, y)) return d;
         }
         return 20;
-    }
+    };
 
-    function loop() {
+    run(() => {
         const COLS = 120;
         const ROWS = 40;
 
@@ -218,24 +228,18 @@ function doom() {
 
             for (let y = 0; y < h; y++) {
                 const py = start + y;
-                if (py >= 0 && py < ROWS) frame[py][x] = shade;
+                if (frame[py]) frame[py][x] = shade;
             }
         }
 
         app.textContent = frame.map(r => r.join("")).join("\n");
-
-        raf = requestAnimationFrame(loop);
-    }
-
-    loop();
+    });
 }
 
-// ---------------------
+// -------------------------
 // ROUTER
-// ---------------------
+// -------------------------
 function switchDemo(name) {
-    stopAll();
-
     if (name === "flow") flow();
     if (name === "gravity") gravity();
     if (name === "editor") editor();
@@ -243,9 +247,9 @@ function switchDemo(name) {
     if (name === "doom") doom();
 }
 
-// ---------------------
+// -------------------------
 // INIT
-// ---------------------
+// -------------------------
 window.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("button").forEach(btn => {
         btn.addEventListener("click", () => {
