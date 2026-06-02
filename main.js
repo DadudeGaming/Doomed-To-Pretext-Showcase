@@ -1,15 +1,6 @@
-import { prepare, layout } from "@chenglou/pretext";
-
 // =====================
-// PRETEXT SETUP (sizing)
+// CONFIG
 // =====================
-const font = "16px monospace";
-const prepared = prepare("█", font);
-
-// Use Pretext just to stabilize layout assumptions
-layout(prepared, 200, 16);
-
-// Screen resolution (grid-based renderer)
 const COLS = 120;
 const ROWS = 40;
 
@@ -40,11 +31,11 @@ const player = {
 // =====================
 const keys = {};
 
-window.addEventListener("keydown", (e) => keys[e.key.toLowerCase()] = true);
-window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
+window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
 // =====================
-// COLLISION CHECK
+// COLLISION
 // =====================
 function isWall(x, y) {
     return map[Math.floor(y)][Math.floor(x)] === "1";
@@ -53,8 +44,8 @@ function isWall(x, y) {
 // =====================
 // MOVEMENT
 // =====================
-function updatePlayer() {
-    const moveSpeed = 0.06;
+function update() {
+    const moveSpeed = 0.05;
     const rotSpeed = 0.04;
 
     if (keys["arrowleft"]) player.angle -= rotSpeed;
@@ -78,7 +69,7 @@ function updatePlayer() {
 }
 
 // =====================
-// RAYCASTING
+// RAYCAST
 // =====================
 function castRay(angle) {
     for (let d = 0; d < 20; d += 0.05) {
@@ -91,9 +82,9 @@ function castRay(angle) {
 }
 
 // =====================
-// FRAME BUFFER
+// FRAME
 // =====================
-function renderFrame() {
+function render() {
     const frame = Array.from({ length: ROWS }, () =>
         Array.from({ length: COLS }, () => ({
             char: " ",
@@ -102,12 +93,10 @@ function renderFrame() {
     );
 
     for (let x = 0; x < COLS; x++) {
-        const rayAngle =
-            player.angle + (x / COLS - 0.5) * 1.2;
-
+        const rayAngle = player.angle + (x / COLS - 0.5) * 1.2;
         const dist = castRay(rayAngle);
 
-        const wallHeight = Math.floor(ROWS / (dist + 0.0001));
+        const wallHeight = Math.floor(ROWS / (dist + 0.001));
 
         const shade =
             dist < 3 ? "█" :
@@ -133,7 +122,7 @@ function renderFrame() {
 }
 
 // =====================
-// RENDER
+// DRAW
 // =====================
 function draw(frame) {
     const app = document.getElementById("app");
@@ -141,25 +130,26 @@ function draw(frame) {
     let out = "";
 
     for (let y = 0; y < ROWS; y++) {
+        let line = "";
+
         for (let x = 0; x < COLS; x++) {
             const cell = frame[y][x];
-
-            out += `<span style="color:${cell.color}">${cell.char}</span>`;
+            line += `<span style="color:${cell.color}">${cell.char}</span>`;
         }
-        out += "\n";
+
+        out += line + "\n";
     }
 
     app.innerHTML = out;
 }
 
 // =====================
-// GAME LOOP
+// LOOP
 // =====================
 function loop() {
-    updatePlayer();
-    const frame = renderFrame();
+    update();
+    const frame = render();
     draw(frame);
-
     requestAnimationFrame(loop);
 }
 
