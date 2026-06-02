@@ -1,27 +1,34 @@
-import { prepare, layoutWithLines, prepareWithSegments, layoutNextLineRange, materializeLineRange } from "@chenglou/pretext";
+import {
+    prepare,
+    layoutWithLines,
+    prepareWithSegments,
+    layoutNextLineRange,
+    materializeLineRange
+} from "@chenglou/pretext";
 
 const app = document.getElementById("app");
+const buttons = document.querySelectorAll("button");
 
-let activeLoop = null;
+let raf = null;
 
 // =====================
 // STOP CURRENT DEMO
 // =====================
 function stop() {
-    if (activeLoop) cancelAnimationFrame(activeLoop);
-    activeLoop = null;
+    if (raf) cancelAnimationFrame(raf);
+    raf = null;
     app.innerHTML = "";
 }
 
 // =====================
-// 1. FLOW TEXT
+// DEMO 1 - FLOW
 // =====================
 function flow() {
     stop();
 
     const text = `
-Pretext flow demo.
-Move mouse horizontally to change layout width.
+Pretext Flow Demo
+Move your mouse to change layout width
 `;
 
     const prepared = prepare(text, "18px system-ui");
@@ -37,21 +44,21 @@ Move mouse horizontally to change layout width.
 
         app.innerHTML = lines.map(l => l.text).join("<br>");
 
-        activeLoop = requestAnimationFrame(loop);
+        raf = requestAnimationFrame(loop);
     }
 
     loop();
 }
 
 // =====================
-// 2. GRAVITY TEXT
+// DEMO 2 - GRAVITY
 // =====================
 function gravity() {
     stop();
 
     const text = `
 Text bends based on cursor position.
-Pretext handles line reflow cheaply.
+Pretext recomputes layout instantly.
 `;
 
     const prepared = prepareWithSegments(text, "18px monospace");
@@ -62,7 +69,6 @@ Pretext handles line reflow cheaply.
 
     function loop() {
         let cursor = { segmentIndex: 0, graphemeIndex: 0 };
-
         let out = "";
 
         while (true) {
@@ -72,7 +78,6 @@ Pretext handles line reflow cheaply.
             if (!range) break;
 
             const line = materializeLineRange(prepared, range);
-
             out += line.text + "\n";
 
             cursor = range.end;
@@ -80,22 +85,28 @@ Pretext handles line reflow cheaply.
 
         app.textContent = out;
 
-        activeLoop = requestAnimationFrame(loop);
+        raf = requestAnimationFrame(loop);
     }
 
     loop();
 }
 
 // =====================
-// 3. EDITOR
+// DEMO 3 - EDITOR
 // =====================
 function editor() {
     stop();
 
     app.innerHTML = `
-<textarea id="t" style="width:100%;height:120px;">Type here...</textarea>
+<textarea id="t" style="
+  width:100%;
+  height:120px;
+  font-size:14px;
+">Type here...</textarea>
+
 <input id="w" type="range" min="200" max="800" value="400"/>
-<pre id="out"></pre>
+
+<pre id="out" style="margin-top:10px;"></pre>
 `;
 
     const t = document.getElementById("t");
@@ -117,7 +128,7 @@ function editor() {
 }
 
 // =====================
-// 4. WALL VISUAL
+// DEMO 4 - WALL
 // =====================
 function wall() {
     stop();
@@ -129,8 +140,7 @@ function wall() {
             let line = "";
 
             for (let x = 0; x < 80; x++) {
-                const v = Math.sin((x + Date.now() * 0.003)) > 0 ? "█" : "░";
-                line += v;
+                line += Math.sin((x + Date.now() * 0.003)) > 0 ? "█" : "░";
             }
 
             out += line + "\n";
@@ -138,7 +148,7 @@ function wall() {
 
         app.textContent = out;
 
-        activeLoop = requestAnimationFrame(loop);
+        raf = requestAnimationFrame(loop);
     }
 
     loop();
@@ -147,12 +157,19 @@ function wall() {
 // =====================
 // ROUTER
 // =====================
-window.switchDemo = function(name) {
+function switchDemo(name) {
     if (name === "flow") flow();
     if (name === "gravity") gravity();
     if (name === "editor") editor();
     if (name === "wall") wall();
-};
+}
+
+// attach listeners properly
+buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+        switchDemo(btn.dataset.demo);
+    });
+});
 
 // default
 flow();
