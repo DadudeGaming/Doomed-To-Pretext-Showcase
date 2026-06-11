@@ -4,7 +4,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth * 0.85;
 canvas.height = window.innerHeight * 0.85;
 
-// -------------------- MAP --------------------
+// Map
 const map = [
     "111111111111111111111111",
     "100000000000000000000001",
@@ -24,7 +24,7 @@ const map = [
     "111111111111111111111111"
 ];
 
-// -------------------- WALL SENTENCES --------------------
+// Wall text
 const wallSentences = {
     "1": [
         "FACILITY SECTOR SECURE CONTAINMENT ACTIVE ",
@@ -64,7 +64,7 @@ const wallColor = {
     "3": [210, 110, 30]
 };
 
-// -------------------- PLAYER --------------------
+// Player
 const player = {
     x: 2.5,
     y: 2.5,
@@ -82,7 +82,7 @@ const keys = {};
 window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 window.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
 
-// -------------------- MOUSE LOOK --------------------
+// Input
 let locked = false;
 canvas.onclick = () => canvas.requestPointerLock();
 document.addEventListener("pointerlockchange", () => {
@@ -93,7 +93,7 @@ document.addEventListener("mousemove", e => {
     player.a += e.movementX * 0.0022;
 });
 
-// -------------------- ENEMIES --------------------
+//  Enemies
 let enemies = [];
 const spawnPoints = [
     { x: 10, y: 3,  cooldown: 0 },
@@ -117,19 +117,17 @@ function spawnEnemy() {
         if (p.cooldown > 0) p.cooldown--;
     }
 
-    // Determine how many enemies to try and spawn in this call
     let attempts = 1;
-    if (activeCount <= 1) { // If very few enemies, try to spawn more aggressively
+    if (activeCount <= 1) {
         attempts = Math.min(MAX_ENEMIES - activeCount, 4); // Changed from 3 to 4
     }
 
     for (let i = 0; i < attempts; i++) {
-        activeCount = enemies.filter(e => e.alive).length; // Re-check active count before each attempt
-        if (activeCount >= MAX_ENEMIES) break; // Stop if max enemies reached
+        activeCount = enemies.filter(e => e.alive).length;
+        if (activeCount >= MAX_ENEMIES) break;
 
-        // Filter spawn points: if activeCount is low, temporarily ignore cooldowns for this burst spawn
         const candidates = spawnPoints
-            .filter(p => p.cooldown <= 0 || activeCount <= 1) // Allow cooldown points if activeCount is low
+            .filter(p => p.cooldown <= 0 || activeCount <= 1)
             .sort(() => Math.random() - 0.5);
 
         let spawnedThisAttempt = false;
@@ -146,18 +144,18 @@ function spawnEnemy() {
 
             if (!blocked) {
                 enemies.push({ x: p.x, y: p.y, alive: true, spawnPoint: p });
-                p.cooldown = SPAWN_COOLDOWN; // Still apply cooldown after spawning
+                p.cooldown = SPAWN_COOLDOWN;
                 spawnedThisAttempt = true;
-                break; // Spawned one, move to next attempt
+                break;
             }
         }
     }
 }
 
-// Initial populate
+// Initial spawn
 for (let i = 0; i < 3; i++) spawnEnemy();
 
-// -------------------- SHOOT --------------------
+// Shooting
 canvas.addEventListener("mousedown", shoot);
 function shoot() {
     if (player.reload || player.ammo <= 0) return;
@@ -182,7 +180,7 @@ function shoot() {
     }
 }
 
-// -------------------- DDA RAYCASTER --------------------
+// Raycast
 function cast(angle) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
@@ -240,21 +238,20 @@ function cast(angle) {
     return { dist: perpWallDist, cell: map[mapY][mapX], texX, mx: mapX, my: mapY, hitSide, hitX, hitY };
 }
 
-// -------------------- DETERMINISTIC HASH --------------------
+// Hash
 function hash2(a, b) {
     let n = Math.imul(a ^ (b << 16), 0x45d9f3b);
     n = Math.imul(n ^ (n >>> 15), 0x9b4e6f3d);
     return (n ^ (n >>> 13)) >>> 0;
 }
 
-// -------------------- RENDER TRACKING STATES --------------------
+// Wall renderer
 let lastCellId = "";
 let segmentStartRayIndex = 0;
 
 function drawWallColumn(rayIndex, hit, w, h, rays) {
     if (hit.cell === "0") return;
 
-    // Track when we transition into a brand new wall segment face
     const currentCellId = `${hit.mx},${hit.my},${hit.hitSide}`;
     if (rayIndex === 0 || currentCellId !== lastCellId) {
         segmentStartRayIndex = rayIndex;
@@ -278,7 +275,6 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
     const g = (color[1] * bright) | 0;
     const b = (color[2] * bright) | 0;
 
-    // Fluid height adjustments
     const fontSize = Math.max(6, Math.min(24, wallHeight / 8));
     ctx.font = `${fontSize}px monospace`;
     ctx.textAlign = "center";
@@ -288,7 +284,6 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
     const sentences = wallSentences[hit.cell] || wallSentences["1"];
     const rowStepHeight = Math.max(8, fontSize + 1);
 
-    // FIX: Character index tracking scales based directly on screen pixel spacing
     const charWidthPixels = fontSize * 0.62;
     const totalScreenPixelsFromWallStart = (rayIndex - segmentStartRayIndex) * (w / rays);
     const textColumnIndex = Math.floor(totalScreenPixelsFromWallStart / charWidthPixels);
@@ -304,7 +299,6 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
         const sentenceIndex = Math.abs(tileSeed + rowNum) % sentences.length;
         const currentSentence = sentences[sentenceIndex];
 
-        // Safe loop layout bounding limits
         const finalCharIdx = ((textColumnIndex % currentSentence.length) + currentSentence.length) % currentSentence.length;
         const character = currentSentence[finalCharIdx];
 
@@ -312,10 +306,10 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
     }
 }
 
-// -------------------- GAME STATE --------------------
+// Game state
 let gameRunning = true;
 
-// -------------------- MAIN LOOP --------------------
+// Main loop
 function loop() {
     const w = canvas.width;
     const h = canvas.height;
@@ -331,13 +325,13 @@ function loop() {
 
         if (player.reload) {
             player.reloadTimer--;
-            if (player.reloadTimer <= 0) { player.ammo = 8; player.reload = false; } // Ammo reset to 8
+            if (player.reloadTimer <= 0) { player.ammo = 8; player.reload = false; }
         }
 
         if (player.flashTimer > 0) player.flashTimer--;
         if (player.damageIndicator > 0) player.damageIndicator--;
 
-        // Movement Triggers
+        // Movement keybinds
         const move = 0.025;
         if (keys["w"]) {
             const nx = player.x + Math.cos(player.a) * move;
@@ -377,7 +371,6 @@ function loop() {
                 if (map[Math.floor(e.y)]?.[Math.floor(e.x + moveX)] === "0") e.x += moveX;
                 if (map[Math.floor(e.y + moveY)]?.[Math.floor(e.x)] === "0") e.y += moveY;
             } else {
-                // Balanced entity damage calculation profiles
                 if (player.health > 0) {
                     player.health -= 0.012;
                     if (Math.random() < 0.05) player.damageIndicator = 3;
@@ -388,12 +381,11 @@ function loop() {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, w, h);
 
-        // ---- RAYCASTING RENDER PASS ----
         const rays = 140;
         const zBuffer = new Float32Array(rays);
         const fov = 1.2;
 
-        lastCellId = ""; // Reset frame boundary caching state keys before loop execution
+        lastCellId = "";
 
         for (let i = 0; i < rays; i++) {
             const angle = player.a + (i / rays - 0.5) * fov;
@@ -402,14 +394,12 @@ function loop() {
             drawWallColumn(i, hit, w, h, rays);
         }
 
-        // Depth Sorting
         alive.sort((a, b) => {
             const da = (a.x - player.x) ** 2 + (a.y - player.y) ** 2;
             const db = (b.x - player.x) ** 2 + (b.y - player.y) ** 2;
             return db - da;
         });
 
-        // ---- ENEMY RENDERING PASS ----
         for (const e of alive) {
             const dx = e.x - player.x;
             const dy = e.y - player.y;
@@ -448,7 +438,7 @@ function loop() {
         ctx.fillStyle = "rgba(220, 30, 30, 0.8)";
         ctx.fillRect(w / 2 - 2, h / 2 - 2, 4, 4);
 
-        // ---- GUN & MUZZLE FLASH ----
+        // Gun and Flash
         const gunY = h - 80;
         if (player.flashTimer > 0) {
             const particles = ["*FLASH*", "##BANG##", "!!!!", "💥"];
@@ -467,7 +457,6 @@ function loop() {
             }
         }
 
-        // Render Gun Placeholder Outline
         ctx.strokeStyle = "#555";
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -482,8 +471,7 @@ function loop() {
             ctx.fillRect(0, 0, w, h);
         }
 
-        // ---- FIX: RE-ESTABLISHED STATIC RENDERING FOR THE MINIMAP ----
-        const s = 6; // Grid Scale Dimension
+        const s = 6;
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
         ctx.fillRect(10, 10, map[0].length * s + 10, map.length * s + 10);
 
@@ -500,14 +488,13 @@ function loop() {
         ctx.font = "8px monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        for (const e of enemies.filter(e => e.alive)) { // Only show alive enemies on minimap
+        for (const e of enemies.filter(e => e.alive)) {
             ctx.fillText("▲", 15 + e.x * s, 15 + e.y * s);
         }
 
         ctx.fillStyle = "white";
         ctx.fillRect(15 + player.x * s - 1, 15 + player.y * s - 1, 3, 3);
 
-        // ---- FIX: RE-ESTABLISHED STATIC HUD LAYOUT ----
         ctx.fillStyle = "#a02020";
         ctx.font = "14px monospace";
         ctx.textBaseline = "middle";
@@ -521,13 +508,12 @@ function loop() {
         ctx.textAlign = "right";
         ctx.fillText(`⚡ AMMO ${player.ammo}${player.reload ? " (RELOADING)" : ""}`, w - 30, h - 25);
 
-        // Death condition check
         if (player.health <= 0) {
             gameRunning = false;
             document.exitPointerLock();
         }
     } else {
-        // Game Over Screen
+        // Game Over screen
         ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
         ctx.fillRect(0, 0, w, h);
 
@@ -543,12 +529,10 @@ function loop() {
         ctx.font = "24px monospace";
         ctx.fillText("PRESS SPACE TO PLAY AGAIN", w / 2, h / 2 + 80);
 
-        if (keys[" "]) { // Check for spacebar press
-            window.location.reload(); // Hard reset
+        if (keys[" "]) {
+            window.location.reload();
         }
     }
-
     requestAnimationFrame(loop);
 }
-
 loop();
