@@ -26,11 +26,67 @@
             height: 85vh;
             image-rendering: pixelated;
         }
+
+        /* Mobile Controls Styling */
+        #mobile-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 5px;
+            /* Ensure it's always visible */
+            pointer-events: auto;
+        }
+
+        #mobile-controls button {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+            font-size: 16px;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none;     /* IE 10+ */
+            user-select: none;         /* Standard syntax */
+            touch-action: manipulation; /* Prevent browser gestures */
+        }
+
+        /* Hide desktop pointer lock message on mobile */
+        .desktop-only {
+            display: none;
+        }
+
+        /* Basic styling for the shoot button on the right */
+        #shoot-button-mobile {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 50, 50, 0.5);
+            color: white;
+            border: 2px solid rgba(255, 100, 100, 0.7);
+            border-radius: 50%;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 1000;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+        }
     </style>
 </head>
 
 <body>
 <canvas id="game"></canvas>
+<div id="desktop-pointer-lock-message" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; z-index: 999;">
+    Click to play
+</div>
 <script type="module" src="main.js"></script>
 </body>
 </html>
