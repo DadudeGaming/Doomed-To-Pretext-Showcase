@@ -84,7 +84,13 @@ window.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
 
 // Input
 let locked = false;
-canvas.onclick = () => canvas.requestPointerLock();
+canvas.onclick = () => {
+    if (gameRunning) {
+        canvas.requestPointerLock();
+    } else if (reloadReady) {
+        window.location.reload();
+    }
+};
 document.addEventListener("pointerlockchange", () => {
     locked = document.pointerLockElement === canvas;
 });
@@ -374,6 +380,9 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
 
 // Game state
 let gameRunning = true;
+let reloadReady = false;
+let gameOverDelay = 0;
+const GAME_OVER_RELOAD_DELAY = 60*3; // 60 frames = 1 second at 60fps
 
 // Mobile Input Variables
 let touchStartX = 0;
@@ -414,13 +423,11 @@ const btnW = createButton('W', 'btn-w', '1 / 2 / 2 / 3');
 const btnA = createButton('A', 'btn-a', '2 / 1 / 3 / 2');
 const btnS = createButton('S', 'btn-s', '2 / 2 / 3 / 3');
 const btnD = createButton('D', 'btn-d', '2 / 3 / 3 / 4');
-const btnShoot = createButton('FIRE', 'btn-shoot', '3 / 2 / 4 / 3'); // Placeholder for now, will be handled by canvas tap
 
 mobileControls.appendChild(btnW);
 mobileControls.appendChild(btnA);
 mobileControls.appendChild(btnS);
 mobileControls.appendChild(btnD);
-// mobileControls.appendChild(btnShoot); // Shoot will be canvas tap
 
 document.body.appendChild(mobileControls);
 
@@ -455,6 +462,10 @@ btnD.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchMoveEn
 // Mobile Look and Shoot Logic
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault(); // Prevent default touch behavior like scrolling
+    if (!gameRunning && reloadReady) {
+        window.location.reload();
+        return;
+    }
     if (e.touches.length === 1) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -479,6 +490,10 @@ canvas.addEventListener('touchmove', (e) => {
 
 canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
+    if (!gameRunning && reloadReady) {
+        // Already handled in touchstart for game over reload
+        return;
+    }
     if (isTouching) {
         isTouching = false;
         // If it was a tap (no significant movement), consider it a shot
@@ -693,6 +708,8 @@ function loop() {
         if (player.health <= 0) {
             gameRunning = false;
             document.exitPointerLock();
+            gameOverDelay = GAME_OVER_RELOAD_DELAY; // Start delay for reload
+            reloadReady = false;
         }
     } else {
         // Game Over screen
@@ -708,10 +725,15 @@ function loop() {
         ctx.font = "bold 30px monospace";
         ctx.fillText(`KILLS: ${player.kills}`, w / 2, h / 2 + 10);
 
-        ctx.font = "24px monospace";
-        ctx.fillText("PRESS SPACE TO PLAY AGAIN", w / 2, h / 2 + 80);
+        if (gameOverDelay > 0) {
+            gameOverDelay--;
+        } else {
+            reloadReady = true;
+            ctx.font = "24px monospace";
+            ctx.fillText("PRESS SPACE OR TAP TO PLAY AGAIN", w / 2, h / 2 + 80);
+        }
 
-        if (keys[" "]) {
+        if (reloadReady && keys[" "]) {
             window.location.reload();
         }
     }
