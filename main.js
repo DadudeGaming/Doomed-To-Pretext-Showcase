@@ -164,13 +164,13 @@ for (let i = 0; i < 3; i++) spawnEnemy();
 // Shooting
 canvas.addEventListener("mousedown", shoot);
 function shoot() {
-    if (!gameRunning) return; // Prevent shooting when game is over
+    if (!gameRunning) return;
     if (player.reload || player.ammo <= 0) return;
     player.ammo--;
 
     player.flashTimer = 6;
 
-    if (player.ammo === 0) { player.reload = true; player.reloadTimer = 150; } // Changed from 90 to 150
+    if (player.ammo === 0) { player.reload = true; player.reloadTimer = 150; }
     
     let shotHit = false;
     for (const e of enemies) {
@@ -183,12 +183,9 @@ function shoot() {
         let diff = Math.abs(angleToEnemy - player.a);
         diff = Math.min(diff, Math.PI * 2 - diff);
 
-        // Check if enemy is within the shooting cone
         if (dist < 10 && diff < 0.25) {
-            // Perform a raycast from player to enemy to check for wall obstruction
             const rayToEnemy = cast(angleToEnemy);
-            
-            // If the ray hits a wall before reaching the enemy, the shot is blocked
+
             if (rayToEnemy.cell !== "0" && rayToEnemy.dist < dist) {
                 continue; // Wall is in the way, enemy not hit
             }
@@ -198,7 +195,7 @@ function shoot() {
             player.kills++;
             if (e.spawnPoint) e.spawnPoint.cooldown = 120;
             shotHit = true;
-            break; // Only hit one enemy per shot
+            break;
         }
     }
 }
@@ -234,9 +231,9 @@ function cast(angle) {
 
     let hit = 0;
     let hitSide = 0;
-    let currentDist = 0; // Track distance for raycast
+    let currentDist = 0;
 
-    const MAX_RAY_DIST = 20; // Max distance for raycast
+    const MAX_RAY_DIST = 20;
 
     while (hit === 0 && currentDist < MAX_RAY_DIST) {
         if (sideDistX < sideDistY) {
@@ -263,7 +260,6 @@ function cast(angle) {
     const hitY = player.y + perpWallDist * sin;
     const texX = (hitSide === 0) ? hitY % 1.0 : hitX % 1.0;
 
-    // Return currentDist if hit is 0 (no wall hit within MAX_RAY_DIST)
     return { dist: hit ? perpWallDist : MAX_RAY_DIST, cell: hit ? map[mapY][mapX] : "0", texX, mx: mapX, my: mapY, hitSide, hitX, hitY };
 }
 
@@ -275,22 +271,20 @@ function hash2(a, b) {
 }
 
 // Wall renderer
-let currentWallSegment = null; // Stores info about the current continuous visual wall segment
+let currentWallSegment = null;
 
 function drawWallColumn(rayIndex, hit, w, h, rays) {
-    // Determine if a new visual segment should start
     const isNewSegment = (
-        rayIndex === 0 || // Always a new segment for the first ray
-        hit.cell === "0" || // If we hit empty space, the segment is broken
-        (currentWallSegment && hit.hitSide !== currentWallSegment.initialHitSide) || // If hit side changes, it's a new segment (e.g., corner)
-        (currentWallSegment && hit.cell !== currentWallSegment.lastHitCell && hit.cell !== "0") // If wall type changes but it's still a wall
+        rayIndex === 0 ||
+        hit.cell === "0" ||
+        (currentWallSegment && hit.hitSide !== currentWallSegment.initialHitSide) ||
+        (currentWallSegment && hit.cell !== currentWallSegment.lastHitCell && hit.cell !== "0")
     );
 
     if (isNewSegment) {
-        currentWallSegment = null; // Reset the segment
+        currentWallSegment = null;
     }
 
-    // If we hit a wall and don't have an active segment, start a new one
     if (hit.cell !== "0" && !currentWallSegment) {
         currentWallSegment = {
             startRayIndex: rayIndex,
@@ -298,16 +292,14 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
             startMy: hit.my,
             initialCellType: hit.cell,
             initialHitSide: hit.hitSide,
-            lastHitCell: hit.cell // Track the last hit cell type for continuity check
+            lastHitCell: hit.cell
         };
     } else if (currentWallSegment && hit.cell !== "0") {
-        // Update lastHitCell for existing segment if it's a wall
         currentWallSegment.lastHitCell = hit.cell;
     }
 
 
     if (hit.cell === "0" || !currentWallSegment) {
-        // If it's empty space or no active segment, nothing to draw for text
         return;
     }
 
@@ -320,7 +312,7 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
     const top = h / 2 - wallHeight / 2;
     const bottom = h / 2 + wallHeight / 2;
 
-    const color = wallColor[hit.cell] || [180, 180, 180]; // Wall color still based on current hit.cell
+    const color = wallColor[hit.cell] || [180, 180, 180];
     const shade = 1 / (1 + dist * dist * 0.05);
     const bright = Math.min(1, shade * 2.2);
 
@@ -328,44 +320,38 @@ function drawWallColumn(rayIndex, hit, w, h, rays) {
     const g = (color[1] * bright) | 0;
     const b = (color[2] * bright) | 0;
 
-    const minFontSize = 8; // Minimum legible font size
-    const maxFontSize = 24; // Maximum font size
-    const verticalScaleFactor = 8; // How much wallHeight influences font size
+    const minFontSize = 8;
+    const maxFontSize = 24;
+    const verticalScaleFactor = 8;
 
-    // Reverted font size calculation to the "good" version
     const fontSize = Math.max(6, Math.min(24, wallHeight / 8));
     ctx.font = `${fontSize}px monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = `rgb(${r},${g},${b})`;
 
-    // Use the initialCellType of the current continuous segment for sentence selection
     const sentences = wallSentences[currentWallSegment.initialCellType] || wallSentences["1"];
     const rowStepHeight = Math.max(8, fontSize + 1);
 
-    // Reintroduced raysPerCharacter logic
     const charWidthPixels = ctx.measureText("M").width;
     const rayColumnWidth = w / rays;
     const raysPerCharacter = Math.max(1, Math.round(charWidthPixels / rayColumnWidth));
 
     if ((rayIndex - currentWallSegment.startRayIndex) % raysPerCharacter !== 0) {
-        return; // Only draw a character every `raysPerCharacter` rays
+        return;
     }
 
-    // Centered character drawing
     const charScreenX = ((rayIndex + raysPerCharacter / 2) / rays) * w;
 
     const startRowIdx = Math.floor((-wallHeight / 2) / rowStepHeight);
     const endRowIdx   = Math.ceil((wallHeight / 2) / rowStepHeight);
 
-    // Character index relative to the start of the current continuous visual segment, adjusted for raysPerCharacter
     const charIndexInSegment = Math.floor((rayIndex - currentWallSegment.startRayIndex) / raysPerCharacter);
 
     for (let rowNum = startRowIdx; rowNum <= endRowIdx; rowNum++) {
         const y = h / 2 + rowNum * rowStepHeight;
         if (y < top || y > bottom) continue;
 
-        // Use the startMx and startMy of the current continuous segment for tileSeed
         const tileSeed = hash2(currentWallSegment.startMx, currentWallSegment.startMy);
         const sentenceIndex = Math.abs(tileSeed + rowNum) % sentences.length;
         const currentSentence = sentences[sentenceIndex];
@@ -436,14 +422,12 @@ const handleTouchMoveStart = (key) => {
     keys[key] = true;
     if (!touchMovementInterval) {
         touchMovementInterval = setInterval(() => {
-            // Movement is handled in the main loop based on `keys` state
-        }, 1000 / 60); // Simulate 60 FPS update for movement
+        }, 1000 / 60);
     }
 };
 
 const handleTouchMoveEnd = (key) => {
     keys[key] = false;
-    // Check if all movement keys are released, then clear interval
     if (!keys['w'] && !keys['a'] && !keys['s'] && !keys['d']) {
         clearInterval(touchMovementInterval);
         touchMovementInterval = null;
@@ -461,7 +445,7 @@ btnD.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchMoveEn
 
 // Mobile Look and Shoot Logic
 canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Prevent default touch behavior like scrolling
+    e.preventDefault();
     if (!gameRunning && reloadReady) {
         window.location.reload();
         return;
@@ -479,9 +463,8 @@ canvas.addEventListener('touchmove', (e) => {
         touchMoveX = e.touches[0].clientX;
         touchMoveY = e.touches[0].clientY;
         const deltaX = touchMoveX - touchStartX;
-        // const deltaY = touchMoveY - touchStartY; // Not using vertical look for now
 
-        player.a += deltaX * 0.005; // Adjust sensitivity as needed
+        player.a += deltaX * 0.005;
 
         touchStartX = touchMoveX;
         touchStartY = touchMoveY;
@@ -491,13 +474,10 @@ canvas.addEventListener('touchmove', (e) => {
 canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
     if (!gameRunning && reloadReady) {
-        // Already handled in touchstart for game over reload
         return;
     }
     if (isTouching) {
         isTouching = false;
-        // If it was a tap (no significant movement), consider it a shot
-        // A small threshold to differentiate tap from drag
         const tapThreshold = 10; 
         if (Math.abs(touchMoveX - touchStartX) < tapThreshold && Math.abs(touchMoveY - touchStartY) < tapThreshold) {
             shoot();
@@ -582,7 +562,7 @@ function loop() {
         const zBuffer = new Float32Array(rays);
         const fov = 1.2;
 
-        currentWallSegment = null; // Reset for each frame
+        currentWallSegment = null;
 
         for (let i = 0; i < rays; i++) {
             const angle = player.a + (i / rays - 0.5) * fov;
@@ -708,7 +688,7 @@ function loop() {
         if (player.health <= 0) {
             gameRunning = false;
             document.exitPointerLock();
-            gameOverDelay = GAME_OVER_RELOAD_DELAY; // Start delay for reload
+            gameOverDelay = GAME_OVER_RELOAD_DELAY;
             reloadReady = false;
         }
     } else {
